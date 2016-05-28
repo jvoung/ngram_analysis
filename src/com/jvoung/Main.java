@@ -11,8 +11,10 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.logging.Logger;
 
 public class Main {
+  private static final Logger LOGGER = Logger.getLogger(Main.class.getName());
 
   public static void main(String[] args) throws IOException {
     Option stem = new Option("stemming", "Use stemming in analysis");
@@ -29,6 +31,12 @@ public class Main {
       for (String arg : argList) {
         Path file = Paths.get(arg);
         analysis.readFile(file);
+        LOGGER.info("Finished file " + file);
+        analysis.printTopNGrams(file, 1, 100);
+        analysis.printTopNGrams(file, 2, 100);
+        analysis.printTopNGrams(file, 3, 100);
+        analysis.printTopNGrams(file, 4, 100);
+        analysis.printTopNGrams(file, 5, 100);
       }
     } catch (ParseException exp) {
       System.err.println("Parsing failed.  Reason: " + exp.getMessage());

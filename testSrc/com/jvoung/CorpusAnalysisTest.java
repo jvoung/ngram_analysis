@@ -7,6 +7,7 @@ import org.junit.Test;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,9 +26,9 @@ public class CorpusAnalysisTest {
     temp = Files.createTempDirectory("test_temp");
   }
 
-  private Path createFile(String name, String... lines) throws IOException {
+  private Path createFile(String name, Charset charset, String... lines) throws IOException {
     Path file = temp.resolve(name);
-    try (BufferedWriter writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
+    try (BufferedWriter writer = Files.newBufferedWriter(file, charset)) {
       for (String line : lines) {
         writer.write(line);
         writer.newLine();
@@ -38,7 +39,7 @@ public class CorpusAnalysisTest {
 
   @Test
   public void emptyFile() throws IOException {
-    Path testFile = createFile("test1");
+    Path testFile = createFile("test1", StandardCharsets.UTF_8);
     CorpusAnalysis corpus = new CorpusAnalysis();
     corpus.readFile(testFile);
     List<String> words = corpus.getWords(testFile);
@@ -46,8 +47,8 @@ public class CorpusAnalysisTest {
   }
 
   @Test
-  public void readAFile() throws IOException {
-    Path testFile = createFile("test1",
+  public void readUTF8File() throws IOException {
+    Path testFile = createFile("test1", StandardCharsets.UTF_8,
         "Hello?",
         "Hello governor!",
         "Another line with many words..."
@@ -62,8 +63,22 @@ public class CorpusAnalysisTest {
   }
 
   @Test
-  public void quotationsOnLine() throws IOException {
-    Path testFile = createFile("test1",
+  public void readISO_8859_1File() throws IOException {
+    Path testFile = createFile("test1", StandardCharsets.ISO_8859_1,
+        "Hello?",
+        "Hello gôvërnor!"
+    );
+    CorpusAnalysis corpus = new CorpusAnalysis();
+    corpus.readFile(testFile);
+    List<String> words = corpus.getWords(testFile);
+    Truth.assertThat(words).containsExactly(
+        "hello", "", "hello", "gôvërnor", ""
+    ).inOrder();
+  }
+
+  @Test
+  public void quotationsOnSameLineOrSplitAcrossLines() throws IOException {
+    Path testFile = createFile("test1", StandardCharsets.UTF_8,
         "John says, \"Hello there.\", and Molly replies \"Yes",
         "that is the case!\"");
     CorpusAnalysis corpus = new CorpusAnalysis();
@@ -77,12 +92,34 @@ public class CorpusAnalysisTest {
         "john", "says", "", "", "hello", "there", "", "", "", "and", "molly", "replies",
         "", "yes", "that", "is", "the", "case", "", ""
     ).inOrder();
+  }
 
+  @Test
+  public void emptyLines() throws IOException {
+    Path testFile = createFile("test", StandardCharsets.UTF_8,
+        "",
+        "AN ARTIST OF THE FLOATING WORLD",
+        "",
+        "KAZUO ISHIGURO",
+        "Copyright © 1986 by Kazuo Ishiguro",
+        "",
+        "",
+        "For my parents",
+        "",
+        ""
+    );
+    CorpusAnalysis corpus = new CorpusAnalysis();
+    corpus.readFile(testFile);
+    List<String> words = corpus.getWords(testFile);
+    Truth.assertThat(words).containsExactly(
+        "", "an", "artist", "of", "the", "floating", "world", "", "kazuo", "ishiguro", "copyright", "©",
+        "1986", "by", "kazuo", "ishiguro", "", "", "for", "my", "parents", "", "")
+        .inOrder();
   }
 
   @Test
   public void testNGram() throws IOException {
-    Path testFile = createFile("test1",
+    Path testFile = createFile("test1", StandardCharsets.UTF_8,
         "Much and more for you.",
         "Little and less. Much and more. Little and less."
     );
@@ -93,32 +130,33 @@ public class CorpusAnalysisTest {
         Pair.of(ImmutableList.of("and"), 4),
         Pair.of(ImmutableList.of("less"), 2),
         Pair.of(ImmutableList.of("little"), 2),
-        Pair.of(ImmutableList.of("much"), 2),
         Pair.of(ImmutableList.of("more"), 2),
+        Pair.of(ImmutableList.of("much"), 2),
         Pair.of(ImmutableList.of("for"), 1),
-        Pair.of(ImmutableList.of("you"), 1)
-        );
+        Pair.of(ImmutableList.of("you"), 1))
+        .inOrder();
     List<Pair<List<String>, Integer>> twoGrams = corpus.computeNgrams(testFile, 2);
     Truth.assertThat(twoGrams).containsExactly(
         Pair.of(ImmutableList.of("and", "less"), 2),
         Pair.of(ImmutableList.of("and", "more"), 2),
         Pair.of(ImmutableList.of("little", "and"), 2),
         Pair.of(ImmutableList.of("much", "and"), 2),
-        Pair.of(ImmutableList.of("more", "for"), 1),
-        Pair.of(ImmutableList.of("for", "you"), 1)
-        );
+        Pair.of(ImmutableList.of("for", "you"), 1),
+        Pair.of(ImmutableList.of("more", "for"), 1))
+        .inOrder();
     List<Pair<List<String>, Integer>> threeGrams = corpus.computeNgrams(testFile, 3);
     Truth.assertThat(threeGrams).containsExactly(
         Pair.of(ImmutableList.of("little", "and", "less"), 2),
         Pair.of(ImmutableList.of("much", "and", "more"), 2),
         Pair.of(ImmutableList.of("and", "more", "for"), 1),
-        Pair.of(ImmutableList.of("more", "for", "you"), 1)
-    );
+        Pair.of(ImmutableList.of("more", "for", "you"), 1))
+        .inOrder();
 
     List<Pair<List<String>, Integer>> fourGrams = corpus.computeNgrams(testFile, 4);
     Truth.assertThat(fourGrams).containsExactly(
         Pair.of(ImmutableList.of("and", "more", "for", "you"), 1),
-        Pair.of(ImmutableList.of("much", "and", "more", "for"), 1)
-    );
+        Pair.of(ImmutableList.of("much", "and", "more", "for"), 1))
+        .inOrder();
   }
+
 }

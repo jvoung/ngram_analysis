@@ -3,9 +3,13 @@ package com.jvoung;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.MalformedInputException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -13,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 /**
@@ -20,26 +25,51 @@ import java.util.stream.Collectors;
  */
 public class CorpusAnalysis {
 
-  private boolean stemming;
+  private static final Logger LOGGER = Logger.getLogger(CorpusAnalysis.class.getName());
+  private static final Splitter SPLITTER = Splitter.onPattern("[\\s\",.?!-]").trimResults();
 
-  Map<Path, List<String>> corpusMap = new HashMap<>();
+  private boolean stemming;
+  private Map<Path, List<String>> corpusMap = new HashMap<>();
 
   public void setStemming(boolean stemming) {
     this.stemming = stemming;
   }
 
   public void readFile(Path file) throws IOException {
+    // Sometimes files are purely UTF-8, so try other charsets if it fails.
+    List<Charset> charSets = ImmutableList.of(
+        StandardCharsets.UTF_8,
+        StandardCharsets.ISO_8859_1,
+        StandardCharsets.UTF_16
+    );
+    for (Charset charset : charSets) {
+      if (tryReadFile(file, charset)) {
+        return;
+      }
+    }
+  }
+
+  private boolean tryReadFile(Path file, Charset charset) throws IOException {
     ImmutableList.Builder<String> wordsBuilder = ImmutableList.builder();
-    Splitter splitter = Splitter.onPattern("[\\s\",.?!-]").trimResults();
-    try (BufferedReader reader = Files.newBufferedReader(file)) {
-      reader.lines().forEach(line -> {
-        Iterable<String> words = splitter.split(line);
+    int numLines = 0;
+    String line = "";
+    try (BufferedReader reader = Files.newBufferedReader(file, charset)) {
+      line = reader.readLine();
+      while (line != null) {
+        Iterable<String> words = SPLITTER.split(line);
         for (String word : words) {
           wordsBuilder.add(word.toLowerCase());
         }
-      });
+        ++numLines;
+        line = reader.readLine();
+      }
+    } catch (MalformedInputException e) {
+      LOGGER.warning(String.format("Failed with charset %s after %s lines due to %s: %s",
+          charset, numLines, line, e));
+      return false;
     }
     corpusMap.put(file, wordsBuilder.build());
+    return true;
   }
 
   public List<String> getWords(Path file) {
@@ -79,14 +109,16 @@ public class CorpusAnalysis {
         .collect(Collectors.toList());
     asList.sort((o1, o2) ->
         ComparisonChain.start()
-            .compare(o1.second, o2.second)
+            // Bigger numbers first.
+            .compare(o2.second, o1.second)
+            // Alphabetical otherwise.
             .compare(o1.first, o2.first, (list1, list2) -> {
               if (list1.size() != list2.size()) {
                 return list1.size() - list2.size();
               }
               ComparisonChain chain = ComparisonChain.start();
               for (int i = 0; i < list1.size(); ++i) {
-                chain.compare(list1.get(i), list2.get(i));
+                chain = chain.compare(list1.get(i), list2.get(i));
               }
               return chain.result();
             })
@@ -95,4 +127,12 @@ public class CorpusAnalysis {
     return asList;
   }
 
+  public void printTopNGrams(Path file, int numGrams, int topN) {
+    System.out.println(String.format("==== Top %d %d-grams for: %s ====", topN, numGrams, file));
+    List<Pair<List<String>, Integer>> ngrams = computeNgrams(file, numGrams);
+    for (Pair<List<String>, Integer> entry : Iterables.limit(ngrams, topN)) {
+      System.out.println(String.format("%d : %s", entry.second, entry.first));
+    }
+    System.out.println("====");
+  }
 }
