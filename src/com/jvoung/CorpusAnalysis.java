@@ -36,7 +36,7 @@ public class CorpusAnalysis {
   }
 
   public void readFile(Path file) throws IOException {
-    // Sometimes files are purely UTF-8, so try other charsets if it fails.
+    // Sometimes files are not UTF-8, so try other charsets if it fails.
     List<Charset> charSets = ImmutableList.of(
         StandardCharsets.UTF_8,
         StandardCharsets.ISO_8859_1,
