@@ -1,0 +1,23 @@
+<component name="libraryTable">
+  <library name="com.google.truth:truth:0.28" type="repository">
+    <properties maven-id="com.google.truth:truth:0.28" />
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/truth-0.28.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/guava-18.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/junit-4.10.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/hamcrest-core-1.1.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/truth-0.28.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/guava-18.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/junit-4.10.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/hamcrest-core-1.1.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$PROJECT_DIR$/lib/truth-0.28-javadoc.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/truth-0.28-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$PROJECT_DIR$/lib/truth-0.28-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/truth-0.28-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
