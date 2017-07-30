@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 public class CorpusAnalysis {
 
   private static final Logger LOGGER = Logger.getLogger(CorpusAnalysis.class.getName());
-  private static final Splitter SPLITTER = Splitter.onPattern("[\\s\",.?!-]").trimResults();
+  private static final Splitter SPLITTER = Splitter.onPattern("[\\s\"“”,.?!—\\-]").trimResults();
 
   private boolean stemming;
   private Map<Path, List<String>> corpusMap = new HashMap<>();
@@ -53,9 +53,20 @@ public class CorpusAnalysis {
     ImmutableList.Builder<String> wordsBuilder = ImmutableList.builder();
     int numLines = 0;
     String line = "";
+    boolean prevWasBlank = false;
     try (BufferedReader reader = Files.newBufferedReader(file, charset)) {
       line = reader.readLine();
       while (line != null) {
+        // Skip single blank lines. If there are two blank lines, treat it as a separator.
+        if (line.trim().isEmpty()) {
+          if (prevWasBlank) {
+            wordsBuilder.add("");
+          }
+          prevWasBlank = true;
+          line = reader.readLine();
+          continue;
+        }
+        prevWasBlank = false;
         Iterable<String> words = SPLITTER.split(line);
         for (String word : words) {
           wordsBuilder.add(word.toLowerCase());

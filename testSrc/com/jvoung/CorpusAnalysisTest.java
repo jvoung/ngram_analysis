@@ -95,7 +95,26 @@ public class CorpusAnalysisTest {
   }
 
   @Test
+  public void quotationsWithFancyQuoteCharOnSameLineOrSplitAcrossLines() throws IOException {
+    Path testFile = createFile("test1", StandardCharsets.UTF_8,
+        "John says, “Hello there.”, and Molly replies “Yes",
+        "that is the case!”");
+    CorpusAnalysis corpus = new CorpusAnalysis();
+    corpus.readFile(testFile);
+    List<String> words = corpus.getWords(testFile);
+    // Note that we include delimiters as space to signal when to reset the n-gram context.
+    // We could probably merge some consecutive ones...
+    // Also not that Molly's quote is split between two lines, but the line split is not
+    // considered a delimiter.
+    Truth.assertThat(words).containsExactly(
+        "john", "says", "", "", "hello", "there", "", "", "", "and", "molly", "replies",
+        "", "yes", "that", "is", "the", "case", "", ""
+    ).inOrder();
+  }
+
+  @Test
   public void emptyLines() throws IOException {
+    // TODO(jvoung): make it configurable how many blank lines are expected for normal line wrapping.
     Path testFile = createFile("test", StandardCharsets.UTF_8,
         "",
         "AN ARTIST OF THE FLOATING WORLD",
@@ -106,14 +125,32 @@ public class CorpusAnalysisTest {
         "",
         "For my parents",
         "",
-        ""
+        "",
+        "More",
+        "stuff that I don't know"
     );
     CorpusAnalysis corpus = new CorpusAnalysis();
     corpus.readFile(testFile);
     List<String> words = corpus.getWords(testFile);
     Truth.assertThat(words).containsExactly(
-        "", "an", "artist", "of", "the", "floating", "world", "", "kazuo", "ishiguro", "copyright", "©",
-        "1986", "by", "kazuo", "ishiguro", "", "", "for", "my", "parents", "", "")
+        "an", "artist", "of", "the", "floating", "world", "kazuo", "ishiguro", "copyright", "©",
+        "1986", "by", "kazuo", "ishiguro", "", "for", "my", "parents", "", "more", "stuff", "that",
+        "i", "don't", "know")
+        .inOrder();
+  }
+
+  @Test
+  public void apostrophe() throws IOException {
+    // TODO(jvoung): make it what the apostrophe and quote characters are.
+    Path testFile = createFile("test", StandardCharsets.UTF_8,
+
+        "More stuff that I don't know"
+    );
+    CorpusAnalysis corpus = new CorpusAnalysis();
+    corpus.readFile(testFile);
+    List<String> words = corpus.getWords(testFile);
+    Truth.assertThat(words).containsExactly(
+        "more", "stuff", "that", "i", "don't", "know")
         .inOrder();
   }
 
@@ -159,4 +196,51 @@ public class CorpusAnalysisTest {
         .inOrder();
   }
 
+  @Test
+  public void testNGramWithNewlineWrap() throws IOException {
+    Path testFile = createFile("test1", StandardCharsets.UTF_8,
+        "Much and",
+        "more",
+        "for you.",
+        "",
+        "Little",
+        "and less. Much",
+        "and more. Little",
+        "and less."
+    );
+    CorpusAnalysis corpus = new CorpusAnalysis();
+    corpus.readFile(testFile);
+    List<Pair<List<String>, Integer>> oneGrams = corpus.computeNgrams(testFile, 1);
+    Truth.assertThat(oneGrams).containsExactly(
+        Pair.of(ImmutableList.of("and"), 4),
+        Pair.of(ImmutableList.of("less"), 2),
+        Pair.of(ImmutableList.of("little"), 2),
+        Pair.of(ImmutableList.of("more"), 2),
+        Pair.of(ImmutableList.of("much"), 2),
+        Pair.of(ImmutableList.of("for"), 1),
+        Pair.of(ImmutableList.of("you"), 1))
+        .inOrder();
+    List<Pair<List<String>, Integer>> twoGrams = corpus.computeNgrams(testFile, 2);
+    Truth.assertThat(twoGrams).containsExactly(
+        Pair.of(ImmutableList.of("and", "less"), 2),
+        Pair.of(ImmutableList.of("and", "more"), 2),
+        Pair.of(ImmutableList.of("little", "and"), 2),
+        Pair.of(ImmutableList.of("much", "and"), 2),
+        Pair.of(ImmutableList.of("for", "you"), 1),
+        Pair.of(ImmutableList.of("more", "for"), 1))
+        .inOrder();
+    List<Pair<List<String>, Integer>> threeGrams = corpus.computeNgrams(testFile, 3);
+    Truth.assertThat(threeGrams).containsExactly(
+        Pair.of(ImmutableList.of("little", "and", "less"), 2),
+        Pair.of(ImmutableList.of("much", "and", "more"), 2),
+        Pair.of(ImmutableList.of("and", "more", "for"), 1),
+        Pair.of(ImmutableList.of("more", "for", "you"), 1))
+        .inOrder();
+
+    List<Pair<List<String>, Integer>> fourGrams = corpus.computeNgrams(testFile, 4);
+    Truth.assertThat(fourGrams).containsExactly(
+        Pair.of(ImmutableList.of("and", "more", "for", "you"), 1),
+        Pair.of(ImmutableList.of("much", "and", "more", "for"), 1))
+        .inOrder();
+  }
 }
